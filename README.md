@@ -17,9 +17,10 @@ https://onlinelibrary.wiley.com/doi/fulpl/10.1111/j.1365-2966.2008.13376.x
 
 These procedures is checked on Ubuntu 20.04.
 
-First, install Global Diffuse Sky Map library.
+First, install Global Diffuse Sky Map library and some other dependencies:
 
 ```
-git clone https://github.com/telegraphic/pygdsm
+pip install numpy scipy pandas matplotlib tqdm astropy astropy-healpix \
+    git+https://github.com/telegraphic/pygdsm \
+    git+https://github.com/taishi-hashimoto/python-antarrlib.git
 ```
-

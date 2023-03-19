@@ -1,0 +1,24 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "pansy-galnoi"
+version = "0.1.0"
+description = "Galactic noise level estimator for the PANSY radar."
+authors = ["Taishi Hashimoto <hashimoto.taishi@nipr.ac.jp>"]
+include = ["pansy-antpos.csv", "pansy-antptn.csv"]
+
+
+
+[[tool.poetry.source]]
+name = "antarrlib"
+url = "https://github.com/taishi-hashimoto/python-antarrlib.git"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = "*"
+antarrlib = { version = "*", source = "antarrlib" }
+
+[tool.poetry.scripts]
+pansy-galnoi = 'pansy_galnoi:main'

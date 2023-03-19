@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
+from os.path import join
 from datetime import datetime
 from tqdm import tqdm
 from matplotlib.dates import DateFormatter
@@ -13,8 +14,9 @@ from astropy.coordinates import Galactic, AltAz, EarthLocation
 from astropy_healpix import HEALPix
 from pygdsm import GlobalSkyModel
 from antarrlib import steering_vector, radial, freq2wnum, dB, idB, spherint
-
+import pkg_resources
 from argparse import ArgumentParser
+
 
 DEFAULT_FREQUENCY = 47e6
 DEFAULT_BEAMS = "[(0, 0), (0, 10), (90, 10), (180, 10), (270, 10)]"
@@ -27,8 +29,8 @@ DEFAULT_LON = 39.5930902267
 DEFAULT_TIMETICKS = 24*60+1
 DEFAULT_DURATION = 24
 DEFAULT_LOCALTIME = 0
-DEFAULT_ANTPOS = "pansy-antpos.csv"
-DEFAULT_ANTPTN = "pansy-antptn.csv"
+DEFAULT_ANTPOS = pkg_resources.resource_filename("pansy_galnoi", "pansy-antpos.csv")
+DEFAULT_ANTPTN = pkg_resources.resource_filename("pansy_galnoi", "pansy-antptn.csv")
 
 
 class Functor:
@@ -49,7 +51,7 @@ class Functor:
         return it[0], self._hp.interpolate_bilinear_skycoord(coords, self._m)
 
 
-if __name__ == "__main__":
+def main():
     argp = ArgumentParser(
         prog="antarr-galnoi",
     )
@@ -118,27 +120,17 @@ if __name__ == "__main__":
         default=DEFAULT_AZ
     )
     argp.add_argument(
-        "-o", "--savecsv",
+        "-o", "--output",
         action="store",
         type=str,
+        nargs="?",
         help=(
-            "Output path for evaluated galactic noise level measured by this "
-            "antenna array. "
+            "Output directory for evaluated galactic noise level measured by "
+            "this antenna array. "
             "By default, no CSV file is generated and only a graph shows up."
         ),
-        default=None
-    )
-    argp.add_argument(
-        "--savefig",
-        action="store",
-        type=str,
-        help=(
-            "Output path for evaluated galactic noise level measured by this "
-            "antenna array. "
-            "If specified, instead of displaying a graph, a quicklook in PNG "
-            "format is stored at the specified path."
-        ),
-        default=None
+        default=None,
+        const=".",
     )
     argp.add_argument(
         "--show",
@@ -172,13 +164,15 @@ if __name__ == "__main__":
         "-j", "--jobs",
         action="store",
         type=float,
+        nargs="?",
         help=(
-            "The number of processes. Default is 1."
+            f"The number of processes. Default is 1, max is {mp.cpu_count()}."
         ),
-        default=1
+        default=1,
+        const=mp.cpu_count()
     )
     argp.add_argument(
-        "-0", "--timezero",
+        "-t", "--timezero",
         action="store",
         type=str,
         help=(
@@ -196,7 +190,7 @@ if __name__ == "__main__":
         default=DEFAULT_DURATION
     )
     argp.add_argument(
-        "--nt",
+        "-n", "--nt",
         action="store",
         type=int,
         help=(
@@ -233,6 +227,12 @@ if __name__ == "__main__":
         default=DEFAULT_ANTPTN
     )
     args = argp.parse_args()
+
+    args.labels = list(eval(f"\"{args.labels}\""))
+    args.colors = list(eval(f"\"{args.colors}\""))
+
+    if not args.show and not args.output:
+        args.show = True
 
     beams = np.deg2rad(eval(args.beams))
     ze = np.linspace(*eval(args.ze))
@@ -280,7 +280,7 @@ if __name__ == "__main__":
         patterns.append(p)
 
     # Check plot.
-    if args.savefig or args.show:
+    if args.output or args.show:
         fig = plt.figure(figsize=(12, 6))
         for ibeam, pat in enumerate(patterns):
             ax = fig.add_subplot(2, 3, ibeam + 1, projection="polar")
@@ -291,13 +291,13 @@ if __name__ == "__main__":
             ax.set_rlim(0, 30)
             ax.grid()
         fig.tight_layout()
-        if args.savefig:
-            fig.savefig(args.savefig)
+        if args.output:
+            fig.savefig(join(args.output, "pattern.png"))
 
     # The number of threads to be executed.
-    if args.jobs in [-1, "all", 0]:
+    if args.jobs in [-1, 0]:
         args.jobs = mp.cpu_count()
-    elif not args.jobs.is_integer():
+    elif not float(args.jobs).is_integer():
         args.jobs = max(int(mp.cpu_count() * args.jobs), 1)
     ncpus = int(args.jobs)
 
@@ -332,16 +332,25 @@ if __name__ == "__main__":
                 galnoi[i, j] = np.sum(pa * pat * s, axis=(-1, -2)) / np.sum(pa * pat, axis=(-1, -2))
 
     # Check plot.
-    if args.savefig or args.show:
+    if args.output or args.show:
         plt.figure(figsize=(16, 7))
         plt.gca().set_prop_cycle(color=args.colors)
         l = plt.plot((timezero + timeticks*u.hour).to_datetime(), galnoi)
         plt.grid()
         plt.gca().xaxis.set_major_formatter(DateFormatter("%dT%H"))
         plt.legend(l, args.labels)
+        plt.title(timezero.strftime("%Y/%m/%d %H:%M:%S"))
         plt.tight_layout()
-        if args.savefig:
-            plt.savefig(args.savefig)
+        if args.output:
+            plt.savefig(join(args.output, timezero.strftime("%Y%m%d.%H%M%S.png")))
+
+    if args.output:
+        pd.DataFrame(galnoi, index=timeticks, columns=args.labels).to_csv(
+            join(args.output, timezero.strftime("%Y%m%d.%H%M%S.csv")))
 
     if args.show:
         plt.show()
+
+
+if __name__ == "__main__":
+    main()

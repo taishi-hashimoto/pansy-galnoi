@@ -33,7 +33,35 @@ DEFAULT_ANTPOS = pkg_resources.resource_filename("pansy_galnoi", "pansy-antpos.c
 DEFAULT_ANTPTN = pkg_resources.resource_filename("pansy_galnoi", "pansy-antptn.csv")
 
 
-class Functor:
+class functor_rp:
+    def __init__(self, ze_g, az_g, k, r, lut):
+        self._ze = ze_g
+        self._az = az_g
+        self._k = k
+        self._r = r
+        self._lut = lut
+
+    def _element(self, ze, az):
+        "Element pattern function."
+        return self._lut(np.c_[np.ravel(ze), np.ravel(az)]).reshape(np.shape(ze))
+
+    def __call__(self, it):
+        i, (az1, ze1) = it
+        b = radial(ze1, az1)
+        v = radial(self._ze, self._az)
+        w = steering_vector(self._k, self._r, b) / np.sqrt(len(self._r))
+        a = steering_vector(self._k, self._r, v)
+        e = self._element(self._ze, self._az)
+        p = np.reshape(
+            np.abs(
+                w.conjugate().dot(a.transpose() * np.sqrt(e).ravel())
+            )**2,
+            np.shape(self._ze)
+        )
+        return i, p
+
+
+class functor_si:
     def __init__(self, lat, lon, az, alt, hp, m):
         self._lat = lat
         self._lon = lon
@@ -131,6 +159,11 @@ def main():
         ),
         default=None,
         const=".",
+    )
+    argp.add_argument(
+        "--check-patterns",
+        action="store_true",
+        help="Show antenna patterns for debugging."
     )
     argp.add_argument(
         "--show",
@@ -234,6 +267,13 @@ def main():
     if not args.show and not args.output:
         args.show = True
 
+    # The number of threads to be executed.
+    if args.jobs in [-1, 0]:
+        args.jobs = mp.cpu_count()
+    elif not float(args.jobs).is_integer():
+        args.jobs = max(int(mp.cpu_count() * args.jobs), 1)
+    ncpus = int(args.jobs)
+
     beams = np.deg2rad(eval(args.beams))
     ze = np.linspace(*eval(args.ze))
     az = np.linspace(*eval(args.az))
@@ -252,54 +292,10 @@ def main():
         (np.deg2rad(df.index.values), np.deg2rad(df.columns.values)),
         idB(df.values))
 
-
-    def element(ze, az):
-        "Element pattern function."
-        return lut(np.c_[np.ravel(ze), np.ravel(az)]).reshape(np.shape(ze))
-
-
     # Wave number.
     k = freq2wnum(args.frequency)
     # Evaluation grid.
     ze_g, az_g = np.deg2rad(np.meshgrid(ze, az, indexing="ij"))
-
-    # Compute antenna pattern
-    patterns = []
-    for az1, ze1 in tqdm(beams, desc="Antenna pattern"):
-        b = radial(ze1, az1)
-        v = radial(ze_g, az_g)
-        w = steering_vector(k, r, b) / np.sqrt(len(r))
-        a = steering_vector(k, r, v)
-        e = element(ze_g, az_g)
-        p = np.reshape(
-            np.abs(
-                w.conjugate().dot(a.transpose() * np.sqrt(e).ravel())
-            )**2,
-            np.shape(ze_g)
-        )
-        patterns.append(p)
-
-    # Check plot.
-    if args.output or args.show:
-        fig = plt.figure(figsize=(12, 6))
-        for ibeam, pat in enumerate(patterns):
-            ax = fig.add_subplot(2, 3, ibeam + 1, projection="polar")
-            m = ax.pcolormesh(np.deg2rad(az), ze, dB(pat, "max"), vmin=-30)
-            fig.colorbar(ax=ax, mappable=m)
-            ax.set_theta_zero_location("N")
-            ax.set_theta_direction(-1)
-            ax.set_rlim(0, 30)
-            ax.grid()
-        fig.tight_layout()
-        if args.output:
-            fig.savefig(join(args.output, "pattern.png"))
-
-    # The number of threads to be executed.
-    if args.jobs in [-1, 0]:
-        args.jobs = mp.cpu_count()
-    elif not float(args.jobs).is_integer():
-        args.jobs = max(int(mp.cpu_count() * args.jobs), 1)
-    ncpus = int(args.jobs)
 
     # Timezone.
     localtime = args.localtime * u.hour
@@ -316,20 +312,48 @@ def main():
 
     lat = args.lat * u.deg
     lon = args.lon * u.deg
-    az_g = az_g*u.rad
+    az0_g = az_g*u.rad
     alt_g = (np.pi/2 - ze_g) * u.rad
 
     # Spherical integral over product with beam pattern and theretical skymap.
     pa = spherint.patch_area(np.deg2rad(ze), np.deg2rad(az))
+
+    patterns = [None for _ in range(len(beams))]
+
     # Final product. For each time and beam, galactic noise level is estimated.
     galnoi = np.zeros((args.nt, len(beams)))
+
     with mp.Pool(ncpus) as pool:
+        # Compute antenna pattern
+        for i, p in tqdm(
+            pool.imap_unordered(
+                functor_rp(ze_g, az_g, k, r, lut),
+                enumerate(beams)
+            ), desc="Antenna pattern", total=len(beams)
+        ):
+            patterns[i] = p
+
         for i, s in tqdm(pool.imap_unordered(
-            Functor(lat, lon, az_g, alt_g, hp, m),
+            functor_si(lat, lon, az0_g, alt_g, hp, m),
             enumerate(timezero + timeticks * u.hour - localtime)
-        ), total=args.nt):
+        ), total=args.nt, desc="Spherical integral"):
             for j, pat in enumerate(patterns):
                 galnoi[i, j] = np.sum(pa * pat * s, axis=(-1, -2)) / np.sum(pa * pat, axis=(-1, -2))
+
+    # Check plot.
+    if  args.check_patterns:
+        fig = plt.figure(figsize=(12, 6))
+        for ibeam, pat in enumerate(patterns):
+            ax = fig.add_subplot(2, 3, ibeam + 1, projection="polar")
+            m = ax.pcolormesh(np.deg2rad(az), ze, dB(pat, "max"), vmin=-30)
+            fig.colorbar(ax=ax, mappable=m)
+            ax.set_theta_zero_location("N")
+            ax.set_theta_direction(-1)
+            ax.set_rlim(0, 30)
+            ax.grid()
+        fig.tight_layout()
+        if args.output:
+            fig.savefig(join(args.output, "pattern.png"))
 
     # Check plot.
     if args.output or args.show:

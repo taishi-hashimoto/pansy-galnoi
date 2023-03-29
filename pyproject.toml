@@ -9,16 +9,19 @@ description = "Galactic noise level estimator for the PANSY radar."
 authors = ["Taishi Hashimoto <hashimoto.taishi@nipr.ac.jp>"]
 include = ["pansy-antpos.csv", "pansy-antptn.csv"]
 
-
-
 [[tool.poetry.source]]
 name = "antarrlib"
 url = "https://github.com/taishi-hashimoto/python-antarrlib.git"
+
+[[tool.poetry.source]]
+name = "pygdsm"
+url = "https://github.com/telegraphic/pygdsm.git"
 
 [tool.poetry.dependencies]
 python = "^3.8"
 numpy = "*"
 antarrlib = { version = "*", source = "antarrlib" }
+pygdsm = { version = "*", source = "pygdsm" }
 
 [tool.poetry.scripts]
 pansy-galnoi = 'pansy_galnoi:main'

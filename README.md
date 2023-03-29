@@ -1,26 +1,24 @@
+# pansy-galnoi
 
-## Materials
+Galactic noise level estimator for antenna arrays.  
+[The PANSY radar](https://pansy.eps.s.u-tokyo.ac.jp/en/index.html) is the original target for this program, but this is applicable to any antenna arrays.
 
-### GSM 2016 repository
+## How it works
 
-https://github.com/jeffzhen/gsm2016
+This program computes a product with the diffuse Galactic radio emission and the theoretical antenna pattern of an antenna array.
 
-### ArXiv article
+### The global diffuse sky models
 
-https://arxiv.org/abs/1605.04920
+- https://github.com/telegraphic/pygdsm
 
-### GSM 2008, article
+### Antenna array theory
 
-https://onlinelibrary.wiley.com/doi/fulpl/10.1111/j.1365-2966.2008.13376.x
+- https://github.com/taishi-hashimoto/python-antarrlib
 
-## How to use
+## Installation
 
-These procedures is checked on Ubuntu 20.04.
-
-First, install Global Diffuse Sky Map library and some other dependencies:
+Use pip.
 
 ```
-pip install numpy scipy pandas matplotlib tqdm astropy astropy-healpix \
-    git+https://github.com/telegraphic/pygdsm \
-    git+https://github.com/taishi-hashimoto/python-antarrlib.git
+pip install git+https://github.com/taishi-hashimoto/pansy-galnoi.git
 ```

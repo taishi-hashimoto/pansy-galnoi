@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawTextHelpFormatter
 from os import makedirs
 from os.path import join
 from datetime import datetime
@@ -82,8 +82,18 @@ class functor_si:
 
 def main():
     argp = ArgumentParser(
-        prog="antarr-galnoi",
+        prog="pansy-galnoi",
+        description=(
+            "Compute the theoretical galactic noise temperature observed by "
+            "the specified antenna array "
+            "(by default assuming the PANSY radar*)."
+        ),
+        epilog="*PANSY radar - https://pansy.eps.s.u-tokyo.ac.jp/en/index.html",
+        formatter_class=RawTextHelpFormatter
     )
+    # 
+    # Antenna array settings.
+    # 
     argp.add_argument(
         "-f", "--frequency",
         action="store",
@@ -91,12 +101,51 @@ def main():
         help=f"Radar frequency in Hz. Default is '{DEFAULT_FREQUENCY}'.",
         default=DEFAULT_FREQUENCY)
     argp.add_argument(
+        "--lat",
+        action="store",
+        type=float,
+        help=(
+            "Latitude of the observer.\n"
+            f"Default is {DEFAULT_LAT}."
+        ),
+        default=DEFAULT_LAT
+    )
+    argp.add_argument(
+        "--lon",
+        action="store",
+        type=float,
+        help=(
+            "Longitude of the observer.\n"
+            f"Default is {DEFAULT_LON}."
+        ),
+        default=DEFAULT_LON
+    )
+    argp.add_argument(
+        "--antpos",
+        action="store",
+        type=str,
+        help=(
+            f"Path to antenna position file.\nDefault is \"{DEFAULT_ANTPOS}\"."
+        ),
+        default=DEFAULT_ANTPOS
+    )
+    argp.add_argument(
+        "--antptn",
+        action="store",
+        type=str,
+        help=(
+            f"Path to antenna pattern file.\nDefault is \"{DEFAULT_ANTPTN}\"."
+        ),
+        default=DEFAULT_ANTPTN
+    )
+    argp.add_argument(
         "-b", "--beams",
         action="store",
         type=str,
         help=(
-            "Beam directions in degrees. Must be a valid Python expression "
-            "for a list of two-element tuple [(az, ze), (az, ze), ...]. "
+            "Beam directions in degrees.\n"
+            "Must be a valid Python expression for a list of two-element "
+            "tuple [(az, ze), (az, ze), ...].\n"
             f"Default is \"{DEFAULT_BEAMS}\"."
         ),
         default=DEFAULT_BEAMS
@@ -106,9 +155,9 @@ def main():
         action="store",
         type=str,
         help=(
-            "Color specification for each beam. "
+            "Color specification for each beam.\n"
             "Must be a valid Python expression for a list of matplotlib's "
-            "color spec. "
+            "color spec.\n"
             f"Default is \"{DEFAULT_COLORS}\"."
         ),
         default=DEFAULT_COLORS
@@ -118,20 +167,63 @@ def main():
         action="store",
         type=str,
         help=(
-            "Label names for each beam. "
-            "Must be a valid Python expression for a list of str. "
+            "Label names for each beam.\n"
+            "Must be a valid Python expression for a list of str.\n"
             f"Default is \"{DEFAULT_LABELS}\"."
         ),
         default=DEFAULT_LABELS
     )
+    # 
+    # Observation time settings.
+    # 
+    argp.add_argument(
+        "-t", "--timezero",
+        action="store",
+        type=str,
+        help=(
+            "Time origin in astropy Time format.\nDefault is now in UTC."
+        ),
+        default=datetime.utcnow().isoformat()
+    )
+    argp.add_argument(
+        "-d", "--duration",
+        action="store",
+        type=int,
+        help=(
+            f"Duration in hours.\nDefault is {DEFAULT_DURATION} h."
+        ),
+        default=DEFAULT_DURATION
+    )
+    argp.add_argument(
+        "-n", "--nt",
+        action="store",
+        type=int,
+        help=(
+            "The number of time ticks. Must be in an integer.\n"
+            f"Default is {DEFAULT_TIMETICKS}."
+        ),
+        default=DEFAULT_TIMETICKS
+    )
+    argp.add_argument(
+        "--localtime",
+        action="store",
+        type=float,
+        help=(
+            f"Localtime offset in hours.\nDefault is {DEFAULT_LOCALTIME}."
+        ),
+        default=DEFAULT_LOCALTIME
+    )
+    # 
+    # Miscellaneous settings.
+    # 
     argp.add_argument(
         "--ze",
         action="store",
         type=str,
         help=(
-            "Zenith directions for evaluating the whole sky. "
+            "Zenith directions for evaluating the whole sky.\n"
             "Must be a valid Python expression for a tuple for "
-            "`numpy.linspace()` argument: (start, stop, count)."
+            "`numpy.linspace()` argument: (start, stop, count).\n"
             f"Default is \"{DEFAULT_ZE}\"."
         ),
         default=DEFAULT_ZE
@@ -141,12 +233,24 @@ def main():
         action="store",
         type=str,
         help=(
-            "Azimuth directions for evaluating the whole sky. "
+            "Azimuth directions for evaluating the whole sky.\n"
             "Must be a valid Python expression for a tuple for "
-            "`numpy.linspace()` argument: (start, stop, count)."
+            "`numpy.linspace()` argument: (start, stop, count).\n"
             f"Default is \"{DEFAULT_AZ}\"."
         ),
         default=DEFAULT_AZ
+    )
+    argp.add_argument(
+        "-j", "--jobs",
+        action="store",
+        type=float,
+        nargs="?",
+        help=(
+            f"The number of processes.\n"
+            "Default is 1, max is {mp.cpu_count()}."
+        ),
+        default=1,
+        const=mp.cpu_count()
     )
     argp.add_argument(
         "-o", "--output",
@@ -155,7 +259,7 @@ def main():
         nargs="?",
         help=(
             "Output directory for evaluated galactic noise level measured by "
-            "this antenna array. \n"
+            "this antenna array.\n"
             "By default, no CSV file is generated and only a graph shows up."
         ),
         default=None,
@@ -173,93 +277,6 @@ def main():
             "Show figure window."
         ),
         default=None
-    )
-    argp.add_argument(
-        "--lat",
-        action="store",
-        type=float,
-        help=(
-            "Latitude of the observer. \n"
-            f"Default is {DEFAULT_LAT}."
-        ),
-        default=DEFAULT_LAT
-    )
-    argp.add_argument(
-        "--lon",
-        action="store",
-        type=float,
-        help=(
-            "Longitude of the observer. \n"
-            f"Default is {DEFAULT_LON}."
-        ),
-        default=DEFAULT_LON
-    )
-    argp.add_argument(
-        "-j", "--jobs",
-        action="store",
-        type=float,
-        nargs="?",
-        help=(
-            f"The number of processes. \n"
-            "Default is 1, max is {mp.cpu_count()}."
-        ),
-        default=1,
-        const=mp.cpu_count()
-    )
-    argp.add_argument(
-        "-t", "--timezero",
-        action="store",
-        type=str,
-        help=(
-            "Time origin in astropy Time format. \nDefault is now in UTC."
-        ),
-        default=datetime.utcnow().isoformat()
-    )
-    argp.add_argument(
-        "-d", "--duration",
-        action="store",
-        type=int,
-        help=(
-            f"Duration in hours. \nDefault is {DEFAULT_DURATION} h."
-        ),
-        default=DEFAULT_DURATION
-    )
-    argp.add_argument(
-        "-n", "--nt",
-        action="store",
-        type=int,
-        help=(
-            "The number of time ticks. Must be in an integer. \n"
-            f"Default is {DEFAULT_TIMETICKS}."
-        ),
-        default=DEFAULT_TIMETICKS
-    )
-    argp.add_argument(
-        "--localtime",
-        action="store",
-        type=float,
-        help=(
-            f"Localtime offset in hours. \nDefault is {DEFAULT_LOCALTIME}."
-        ),
-        default=DEFAULT_LOCALTIME
-    )
-    argp.add_argument(
-        "--antpos",
-        action="store",
-        type=str,
-        help=(
-            f"Path to antenna position file. \nDefault is \"{DEFAULT_ANTPOS}\"."
-        ),
-        default=DEFAULT_ANTPOS
-    )
-    argp.add_argument(
-        "--antptn",
-        action="store",
-        type=str,
-        help=(
-            f"Path to antenna pattern file. \nDefault is \"{DEFAULT_ANTPTN}\"."
-        ),
-        default=DEFAULT_ANTPTN
     )
     args = argp.parse_args()
 

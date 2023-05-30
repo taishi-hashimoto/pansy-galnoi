@@ -362,6 +362,7 @@ def main():
         l = plt.plot((timezero + timeticks*u.hour).to_datetime(), galnoi)
         plt.grid()
         plt.gca().xaxis.set_major_formatter(DateFormatter("%dT%H"))
+        plt.gca().yaxis.set_major_formatter("{x:.0f} K")
         plt.legend(l, args.labels)
         plt.title(timezero.strftime("%Y/%m/%d %H:%M:%S"))
         plt.tight_layout()

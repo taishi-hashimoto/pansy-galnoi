@@ -1,8 +1,10 @@
 "Galactic noise level estimator for antenna array."
+import pkg_resources
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
+from argparse import ArgumentParser
 from os.path import join
 from datetime import datetime
 from tqdm import tqdm
@@ -14,8 +16,6 @@ from astropy.coordinates import Galactic, AltAz, EarthLocation
 from astropy_healpix import HEALPix
 from pygdsm import GlobalSkyModel
 from antarrlib import steering_vector, radial, freq2wnum, dB, idB, spherint
-import pkg_resources
-from argparse import ArgumentParser
 
 
 DEFAULT_FREQUENCY = 47e6

@@ -1,7 +1,7 @@
 # pansy-galnoi
 
-Galactic noise level estimator for antenna arrays.  
-[The PANSY radar](https://pansy.eps.s.u-tokyo.ac.jp/en/index.html) is the original target for this program, but this is applicable to any antenna arrays.
+This Python program is a galactic noise level estimator for antenna arrays.  
+[The PANSY radar](https://pansy.eps.s.u-tokyo.ac.jp/en/index.html) is the original target system for this program, but this is applicable to any antenna arrays.
 
 ## How it works
 

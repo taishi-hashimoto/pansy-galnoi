@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 from argparse import ArgumentParser
+from os import makedirs
 from os.path import join
 from datetime import datetime
 from tqdm import tqdm
@@ -154,7 +155,7 @@ def main():
         nargs="?",
         help=(
             "Output directory for evaluated galactic noise level measured by "
-            "this antenna array. "
+            "this antenna array. \n"
             "By default, no CSV file is generated and only a graph shows up."
         ),
         default=None,
@@ -178,7 +179,7 @@ def main():
         action="store",
         type=float,
         help=(
-            "Latitude of the observer."
+            "Latitude of the observer. \n"
             f"Default is {DEFAULT_LAT}."
         ),
         default=DEFAULT_LAT
@@ -188,7 +189,7 @@ def main():
         action="store",
         type=float,
         help=(
-            "Longitude of the observer."
+            "Longitude of the observer. \n"
             f"Default is {DEFAULT_LON}."
         ),
         default=DEFAULT_LON
@@ -199,7 +200,8 @@ def main():
         type=float,
         nargs="?",
         help=(
-            f"The number of processes. Default is 1, max is {mp.cpu_count()}."
+            f"The number of processes. \n"
+            "Default is 1, max is {mp.cpu_count()}."
         ),
         default=1,
         const=mp.cpu_count()
@@ -209,16 +211,16 @@ def main():
         action="store",
         type=str,
         help=(
-            "Time origin of observation. Default is now."
+            "Time origin in astropy Time format. \nDefault is now in UTC."
         ),
-        default=Time(datetime.now())
+        default=datetime.utcnow().isoformat()
     )
     argp.add_argument(
         "-d", "--duration",
         action="store",
-        type=str,
+        type=int,
         help=(
-            "Observation duration in hours."
+            f"Duration in hours. \nDefault is {DEFAULT_DURATION} h."
         ),
         default=DEFAULT_DURATION
     )
@@ -227,8 +229,8 @@ def main():
         action="store",
         type=int,
         help=(
-            "The number of time ticks of observation. Must be in an integer."
-            f" Default is {DEFAULT_TIMETICKS}."
+            "The number of time ticks. Must be in an integer. \n"
+            f"Default is {DEFAULT_TIMETICKS}."
         ),
         default=DEFAULT_TIMETICKS
     )
@@ -237,7 +239,7 @@ def main():
         action="store",
         type=float,
         help=(
-            f"Localtime offset in hours. Default is {DEFAULT_LOCALTIME}."
+            f"Localtime offset in hours. \nDefault is {DEFAULT_LOCALTIME}."
         ),
         default=DEFAULT_LOCALTIME
     )
@@ -246,7 +248,7 @@ def main():
         action="store",
         type=str,
         help=(
-            f"Path to antenna position file. Default is \"{DEFAULT_ANTPOS}\"."
+            f"Path to antenna position file. \nDefault is \"{DEFAULT_ANTPOS}\"."
         ),
         default=DEFAULT_ANTPOS
     )
@@ -255,7 +257,7 @@ def main():
         action="store",
         type=str,
         help=(
-            f"Path to antenna pattern file. Default is \"{DEFAULT_ANTPTN}\"."
+            f"Path to antenna pattern file. \nDefault is \"{DEFAULT_ANTPTN}\"."
         ),
         default=DEFAULT_ANTPTN
     )
@@ -263,6 +265,9 @@ def main():
 
     args.labels = list(eval(f"\"{args.labels}\""))
     args.colors = list(eval(f"\"{args.colors}\""))
+
+    if args.output:
+        makedirs(args.output, exist_ok=True)
 
     if not args.show and not args.output:
         args.show = True
@@ -301,7 +306,7 @@ def main():
     localtime = args.localtime * u.hour
 
     # Target datetme.
-    timezero = Time(args.timezero)
+    timezero = Time(args.timezero, scale="utc")
 
     timeticks = np.linspace(0, args.duration, args.nt)
 
@@ -338,10 +343,11 @@ def main():
             enumerate(timezero + timeticks * u.hour - localtime)
         ), total=args.nt, desc="Spherical integral"):
             for j, pat in enumerate(patterns):
-                galnoi[i, j] = np.sum(pa * pat * s, axis=(-1, -2)) / np.sum(pa * pat, axis=(-1, -2))
+                galnoi[i, j] = np.sum(pa * pat * s, axis=(-1, -2)) / \
+                    np.sum(pa * pat, axis=(-1, -2))
 
     # Check plot.
-    if  args.check_patterns:
+    if args.check_patterns:
         fig = plt.figure(figsize=(12, 6))
         for ibeam, pat in enumerate(patterns):
             ax = fig.add_subplot(2, 3, ibeam + 1, projection="polar")
@@ -357,17 +363,23 @@ def main():
 
     # Check plot.
     if args.output or args.show:
-        plt.figure(figsize=(16, 7))
-        plt.gca().set_prop_cycle(color=args.colors)
-        l = plt.plot((timezero + timeticks*u.hour).to_datetime(), galnoi)
-        plt.grid()
-        plt.gca().xaxis.set_major_formatter(DateFormatter("%dT%H"))
-        plt.gca().yaxis.set_major_formatter("{x:.0f} K")
-        plt.legend(l, args.labels)
-        plt.title(timezero.strftime("%Y/%m/%d %H:%M:%S"))
-        plt.tight_layout()
+        fig, ax = plt.subplots(1, 1, figsize=(16, 7))
+        ax.set_prop_cycle(color=args.colors)
+        l = ax.plot((timezero + timeticks*u.hour).to_datetime(), galnoi)
+        ax.grid()
+        ax.xaxis.set_major_formatter(DateFormatter("%dT%H"))
+        ax.yaxis.set_major_formatter("{x:.0f} K")
+        ax.legend(l, args.labels)
+        ax.set_title(" - ".join(
+            map(
+                lambda x: x.strftime("%Y/%m/%d %H:%M:%S"),
+                [timezero, timezero + args.duration*u.hour])) + " (UTC" +
+                (f"+{args.localtime:g}" if args.localtime != 0 else "") + ")"
+            )
+        fig.tight_layout()
         if args.output:
-            plt.savefig(join(args.output, timezero.strftime("%Y%m%d.%H%M%S.png")))
+            fig.savefig(
+                join(args.output, timezero.strftime("%Y%m%d.%H%M%S.png")))
 
     if args.output:
         pd.DataFrame(galnoi, index=timeticks, columns=args.labels).to_csv(

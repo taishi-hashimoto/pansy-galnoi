@@ -134,11 +134,11 @@ def main():
         action="store",
         type=str,
         help=(
-            f"""Path to antenna pattern file.\n
-            Default is \"{DEFAULT_ANTPTN}\".\n
-            Row corresponds to zenith angle, while column is azimuth angle.
-            Angles are measured CW from North (same hereafter).
-            """
+            f"Path to antenna pattern file.\n"
+            f"Default is \"{DEFAULT_ANTPTN}\".\n"
+            "In the file, row corresponds to zenith angle, while column to "
+            "azimuth angle.\n"
+            "Angles are measured CW from North (same hereafter)."
         ),
         default=DEFAULT_ANTPTN
     )

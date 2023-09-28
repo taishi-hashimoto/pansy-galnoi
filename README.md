@@ -26,8 +26,8 @@ pip install git+https://github.com/taishi-hashimoto/pansy-galnoi.git
 ## Usage
 
 ```$ pansy-galnoi --help
-usage: pansy-galnoi [-h] [-f FREQUENCY] [--lat LAT] [--lon LON] [--antpos ANTPOS] [--antptn ANTPTN] [-b BEAMS] [-c COLORS] [-l LABELS] [-t TIMEZERO] [-d DURATION] [-n NT] [--localtime LOCALTIME] [--ze ZE]
-                    [--az AZ] [-j [JOBS]] [-o [OUTPUT]] [--check-patterns] [--show]
+usage: pansy-galnoi [-h] [-f FREQUENCY] [--lat LAT] [--lon LON] [--antpos ANTPOS] [--antptn ANTPTN] [-b BEAMS] [-c COLORS] [-l LABELS] [-t TIMEZERO] [-d DURATION] [-n NT] [--localtime LOCALTIME] [--ze ZE] [--az AZ] [-j [JOBS]] [-o [OUTPUT]] [--check-patterns]
+                    [--show]
 
 Compute the theoretical galactic noise temperature observed by the specified antenna array (by default assuming the PANSY radar*).
 
@@ -43,6 +43,8 @@ options:
                         Default is "pansy-antpos.csv".
   --antptn ANTPTN       Path to antenna pattern file.
                         Default is "pansy-antptn.csv".
+                        In the file, row corresponds to zenith angle, while column to azimuth angle.
+                        Angles are measured CW from North (same hereafter).
   -b BEAMS, --beams BEAMS
                         Beam directions in degrees.
                         Must be a valid Python expression for a list of two-element tuple [(az, ze), (az, ze), ...].

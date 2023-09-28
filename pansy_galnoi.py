@@ -48,8 +48,8 @@ class functor_rp:
 
     def __call__(self, it):
         i, (az1, ze1) = it
-        b = radial(ze1, az1)
-        v = radial(self._ze, self._az)
+        b = radial(ze1, np.pi/2 - az1)
+        v = radial(self._ze, np.pi/2 - self._az)
         w = steering_vector(self._k, self._r, b) / np.sqrt(len(self._r))
         a = steering_vector(self._k, self._r, v)
         e = self._element(self._ze, self._az)
@@ -134,7 +134,11 @@ def main():
         action="store",
         type=str,
         help=(
-            f"Path to antenna pattern file.\nDefault is \"{DEFAULT_ANTPTN}\"."
+            f"""Path to antenna pattern file.\n
+            Default is \"{DEFAULT_ANTPTN}\".\n
+            Row corresponds to zenith angle, while column is azimuth angle.
+            Angles are measured CW from North (same hereafter).
+            """
         ),
         default=DEFAULT_ANTPTN
     )

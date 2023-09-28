@@ -40,9 +40,9 @@ options:
   --lon LON             Longitude of the observer.
                         Default is 39.5930902267.
   --antpos ANTPOS       Path to antenna position file.
-                        Default is "~/.local/lib/python3.10/site-packages/pansy-antpos.csv".
+                        Default is "pansy-antpos.csv".
   --antptn ANTPTN       Path to antenna pattern file.
-                        Default is "~/.local/lib/python3.10/site-packages/pansy-antptn.csv".
+                        Default is "pansy-antptn.csv".
   -b BEAMS, --beams BEAMS
                         Beam directions in degrees.
                         Must be a valid Python expression for a list of two-element tuple [(az, ze), (az, ze), ...].
